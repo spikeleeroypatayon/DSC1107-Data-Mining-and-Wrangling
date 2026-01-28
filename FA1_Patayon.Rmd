@@ -1,0 +1,252 @@
+---
+title: "FA1_Patayon"
+author: "PATAYON, SPIKE LEE-ROY V"
+date: "2026-01-28"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Lecture 2 Exercises
+
+Before we start, we must import some important libraries
+
+```{r}
+library(tidyverse)
+library(dplyr)
+```
+
+```{r}
+diamonds
+```
+
+**7.1 Relating the carat and cut of a diamond**
+
+Recall this plot
+
+```{r}
+ggplot(data=diamonds)+
+  geom_point(mapping = aes(x=carat,y=price,color=cut))
+```
+
+What relationship does it suggest between carat and cut? Create a plot to directly visualize this relationship. What do you conclude? How does this explain the paradoxical trend we found in the plot below?
+
+**Analysis:**
+
+The scatter plot suggests an **inverse relationship** between carat and cut, where diamonds with higher carat weights often have lower-quality cuts. This occurs because larger "rough" diamonds are extremely rare, leading cutters to prioritize preserving weight (carat) over precision (cut) to maximize the stone's final sale price.
+
+To visualize this relationship, we will use boxplot:
+
+```{r}
+ggplot(data=diamonds, mapping = aes(x=cut,y=carat))+
+  geom_boxplot()
+```
+
+**Analysis:**
+
+The box plot reveals a surprising trend that explains the "paradox" in diamond pricing: **lower-quality cuts are associated with higher average carat weights.**
+
+### Key Findings from the Box Plot
+
+-   **Higher Carat in Lower Cuts:** The "Fair" cut category has a noticeably higher median carat weight (positioned at the 1.0 mark) compared to the "Ideal" category, which has the lowest median weight.
+
+-   **Ideal Cut Precision:** The "Ideal" category is more tightly clustered at lower weights, indicating that these stones are typically smaller.
+
+-   **Outliers Across the Board:** Every category contains significant outliers (the black dots reaching up to 5 carats), but the "Fair" category produces some of the heaviest individual stones in the dataset.
+
+**Why this happens?**
+
+This data confirms an economic trade-off in the diamond industry. To produce an **Ideal** cut, a diamond cutter must remove a significant amount of the original "rough" stone to achieve perfect proportions and symmetry. Conversely, to maintain a high **carat** weight on a larger piece of rough material, cutters often sacrifice precision, resulting in a **Fair** or **Good** cut.
+
+### Conclusion
+
+This explains why a smaller "Ideal" diamond can sometimes cost as much as a larger "Fair" diamond. In the scatter plot, the "Fair" diamonds (purple) appear at higher carat weights but lower price points relative to their size, while "Ideal" diamonds (yellow) command a premium price even at smaller carats due to their superior light performance
+
+**7.2 Relating the size and carat of a diamond**
+Create a plot to visualize the relationship between the carat and length of a diamond. Zoom in to exclude
+any outliers. What sort of relationship does your plot suggest? How would you explain this relationship?
+
+```{r}
+ggplot(data = diamonds, mapping = aes(x = carat, y = x)) +
+  geom_point(alpha = 0.1) + 
+  coord_cartesian(xlim = c(0, 3), ylim = c(3.5, 9.5)) +
+  labs(title = "Relationship Between Carat and Diamond Length (x)",
+       x = "Carat (Weight)",
+       y = "Length (mm)")
+```
+
+**Interpretation:**
+
+The plot of **carat** versus **length (x)** reveals a **strong, positive, and non-linear relationship**. As the weight of the diamond increases, its length also increases, but the trend follows a distinct curve rather than a straight line.
+
+**Analysis of the Relationship**
+
+-   **Positive Correlation:** There is a direct link between size and weight; you won't find a heavy diamond that is tiny in dimensions.
+
+-   **Curvature:** The slope of the curve gradually flattens as the carat weight increases. This means that to get a diamond that is twice as long, you need significantly more than twice the carat weight.
+
+-   **Data Density:** The "thickness" of the points at lower carat values shows that smaller diamonds are far more common in the dataset than larger ones.
+
+**Why this Relationship Exists**
+
+The explanation lies in the **geometry of three-dimensional objects**.
+
+1.  **Dimensions vs. Volume:** Carat is a measure of weight, which is directly tied to **volume** (a 3D property). Length (x) is a **linear** measure (a 1D property).
+
+2.  **The Cube Law:** If you double the dimensions of a diamond (length, width, and depth) while keeping the same shape, the volume (and thus the carat weight) increases by eight times ($2^3 = 8$).
+
+3.  **The Result:** Mathematically, the length is proportional to the **cube root** of the carat weight. This is why the graph curves; as the diamond gets heavier, the weight is being distributed across three dimensions (length, width, and depth) simultaneously, rather than just making the diamond longer.
+
+------------------------------------------------------------------------
+
+# Lecture 3 Exercise
+
+**Use dplyr to answer the following questions:**
+
+-   What is the minimum diamond price in this dataset? See if you can find the answer in two different
+    ways (i.e. using two different dplyr verbs).
+
+    Method 1: This is the most direct way to get a single value
+
+    ```{r}
+    diamonds %>%
+      summarise(min_price=min(price ))
+    ```
+
+    Method 2: By sorting the data in ascending order, the first row will contain the minimum price
+
+    ```{r}
+    diamonds %>%
+      arrange(price) %>%
+      select(price)
+    ```
+
+-   How many diamonds have length at least one and a half times their width?
+
+    ```{r}
+    diamonds %>%
+      filter(x >=1.5*y) %>% 
+      count()
+    ```
+
+-   Among diamonds with colors D, E, F, G, what is the median number of carats for diamonds of each
+    cut?
+
+    ```{r}
+    diamonds %>%
+      filter(color %in%  c("D", "E", "F", "G")) %>%
+      group_by(cut) %>%
+      summarize(median_carat = median(carat))
+    ```
+
+------------------------------------------------------------------------
+
+# Lecture 4 Exercises
+
+1.  Import heights2.csv
+
+```{r}
+heights2 = read_csv(file = "C:\\Users\\spike\\Downloads\\heights.csv")
+heights2
+
+```
+
+2.  Using prose, describe how the variables and observations are organised in each of the sample tables.
+
+    ```{r}
+    table1
+    ```
+
+    ```{r}
+    table2
+    ```
+
+    ```{r}
+    table3
+    ```
+
+    ```{r}
+    table4a
+    ```
+
+    ```{r}
+    table4b
+    ```
+
+    Based on the provided tables :
+
+    **Table 1**: This table is **tidy**. Each variable (country, year, cases, and population) has its own column, and each row represents a single observation of a country in a specific year .
+
+    **Table 2**: One observation (a country in a year) is spread across **two rows**: one for "cases" and one for "population" .
+
+    **Table 3**: This table combines two variables (cases and population) into a **single column** called `rate`, separated by a slash .
+
+    **Table 4a & 4b**: These tables spread a single variable (cases in 4a, population in 4b) across **multiple columns** (1999 and 2000), where the column names are actually values of the `year` variable
+
+3.  Use pivot_longer() to tidy table4b in a similar fashion. What is the difference between the code used to tidy table4a and table4b? 
+
+    ```{r}
+    table4b %>% 
+      pivot_longer(cols = c(`1999`, `2000`), names_to = "year", values_to = "population")
+    ```
+
+    **Difference:** The only difference between tidying `table4a` and `table4b` is the `values_to` argument. In `table4a`, the values represent "cases," while in `table4b`, they represent "population".
+
+4.  Why does this code fail?
+
+```{r}
+#table4a %>%
+  #pivot_longer(cols = c(1999, 2000), names_to = "year", values_to = "cases")
+```
+
+**Reason:** The code fails because `1999` and `2000` are **non-syntactic names** (they start with numbers). In R, these must be surrounded by **backticks** (`` `1999` ``) to be recognized as column names rather than numerical positions. The error "Locations 1999 and 2000 don't exist" occurs because R is looking for the 1,999th and 2,000th columns in a table that only has 3 columns.
+
+5.  Tidy the simple tibble below. Do you need to make it wider or longer? What are the variables?
+
+tribble(
+
+\~pregnant, \~male, \~female,
+
+"yes", NA, 10,
+
+"no", 20, 12
+
+)
+
+```{r}
+# Tidy version
+tribble(
+  ~pregnant, ~male, ~female,
+  "yes", NA, 10,
+  "no", 20, 12
+) %>%
+  pivot_longer(cols = c(male, female), names_to = "sex", values_to = "count")
+```
+
+**Variables:** The variables are `pregnant` (status), `sex` (male/female), and `count` (the number of people).
+
+6.  Consider the two tibbles below. What is the key column? Without writing any code, can you predict how many rows and columns left_join(x,y) and left_join(y,x) will have? 
+
+    Given the tibbles provided:
+
+    **Key Column:** The key column is **`state`**, as it is common to both tables.
+
+    **Predictions:**
+
+    **`left_join(x, y)`**:
+
+    **Rows:** 3 (keeps all rows from `x`: PA, TX, NY).
+
+    **Columns:** 3 (`state`, `population`, and `capital`).
+
+    *Note: The "PA" row will have `NA` for capital since PA is not in table `y`*.
+
+    **`left_join(y, x)`**:
+
+    **Rows:** 4 (keeps all rows from `y`: TX, CA, NY, MI).
+
+    **Columns:** 3 (`state`, `capital`, and `population`).
+
+    *Note: "CA" and "MI" will have `NA` for population since they are not in table `x`*
