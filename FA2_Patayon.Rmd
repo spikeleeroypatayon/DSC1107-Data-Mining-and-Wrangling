@@ -1,0 +1,384 @@
+---
+title: "FA2_Patayon"
+author: "PATAYON, SPIKE LEE-ROY V"
+date: "2026-02-02"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## 1. Introduction
+
+In this formative assessment, you will review Unit 1, focusing on data wrangling, manipulation, and visualization.
+
+```{r}
+library(tidyverse)
+```
+
+You will perform a data analysis to study trends in tuberculosis (TB) cases worldwide over time. The two relevant datasets are:
+
+-   **`who.tsv`**: Information about TB cases in various countries from 1980 to 2013 (Source: 2014 WHO Global Tuberculosis Report).
+
+-   **`population.csv`**: Population data of each country across time (Source: The World Bank).
+
+## 2. Import
+
+   2.1. Preview the contents of **`who.tsv`** and **`population.csv`** by inspecting the files.
+
+   2.2. Import the data into tibbles named `who` and `population`.
+
+```{r}
+df_who = who
+
+df_population = read_csv("C:\\Users\\spike\\Downloads\\Population.csv")
+
+df_who
+df_population
+```
+
+   2.3. Determine the number of rows and columns in each tibble.
+
+```{r}
+dim(df_who)
+dim(df_population)
+```
+
+   2.4. Check the summary of variable types for `population.csv`. Fix any anomalies and store the corrected data in `population2`.
+
+```{r}
+glimpse(df_population)
+summary(df_population)
+```
+
+-   What the summary tells us
+
+    -   The dataset has 266 rows and 68 columns
+
+-   Key identifier variables:
+
+    -   Country Name – character
+
+    -   Country Code – character
+
+    -   Indicator Name – character
+
+    -   Indicator Code – character
+
+-   Year columns (1960 to 2023) are correctly read as numeric (<dbl>)
+
+-   Some year columns contain NA values (usually for aggregates like regions)
+
+Rename columns for consistency
+
+```{r}
+population2 <- df_population %>%
+  rename(
+    country = `Country Name`,
+    country_code = `Country Code`
+  ) %>%
+  select(-`Indicator Name`, -`Indicator Code`)
+
+```
+
+Remove unnecessary indicator columns
+
+```{r}
+population2 <- population2 %>%
+  select(-`Indicator Name`, -`Indicator Code`)
+
+```
+
+```{r}
+population2
+```
+
+The summary shows that the population dataset contains 266 rows and 68 columns. The country identifiers are stored as character variables, while yearly population values from 1960 to 2023 are stored as numeric variables. However, the dataset is in wide format, with each year represented as a separate column, and it includes regional aggregates rather than only individual countries. Additionally, some population values are missing. These anomalies were addressed by renaming variables for consistency and removing unnecessary indicator columns, storing the corrected dataset as `population2`.
+
+## 3. Tidy Data
+
+### `3.1 who` Dataset
+
+#### Description of Columns:
+
+-   **`country`**: Country name.
+
+-   **`iso2`**: Two-digit country code.
+
+-   **`iso3`**: Three-digit country code.
+
+-   **`year`**: Year.
+
+-   Variables like **`new_ep_f014`**:
+
+    -   `ep`: TB type (e.g., rel = relapse, ep = extrapulmonary).
+
+    -   `f`: Sex (e.g., f = female).
+
+    -   `014`: Age group (e.g., 0-14 years).
+
+#### Steps:
+
+  3.1.1 Identify the variables in the dataset.
+
+```{r}
+colnames(df_who)
+```
+
+  3.1.2 Perform a pivot operation to make the data tidy, storing the result in `who2`.
+
+```{r}
+who2 <- who %>%
+  pivot_longer(
+    cols = starts_with("new"),
+    names_to = "key",
+    values_to = "cases"
+  )
+```
+
+Remove NA values
+
+```{r}
+who2 <- who2 %>%
+  filter(!is.na(cases))
+
+```
+
+  3.1.3 Separate values like `new_ep_f014` into components (e.g., `new`, `ep`, `f014`). Remove the column containing `new`, and store the result in `who3`.
+
+```{r}
+who3 <- who2 %>%
+  separate(key, into = c("new", "type", "sex_age"), sep = "_") %>%
+  select(-new)
+
+```
+
+  3.1.4 Further separate values like `f014` into `f` and `014`, storing the result in `who_tidy`.
+
+```{r}
+who_tidy <- who3 %>%
+  separate(sex_age, into = c("sex", "age"), sep = 1)
+
+```
+
+### 3.2 Population Dataset
+
+  3.2.1 Identify the variables in this dataset.
+
+```{r}
+colnames(population2)
+
+```
+
+  3.2.2 Perform a pivot operation to tidy the data, storing the result in `population3`.
+
+```{r}
+population3 <- population2 %>%
+  pivot_longer(
+    cols = matches("^[0-9]{4}$"),
+    names_to = "year",
+    values_to = "population"
+  )
+
+
+```
+
+  3.2.3 Cast the population variable to an appropriate data type, storing the result in `population_tidy`.
+
+```{r}
+population_tidy <- population3 %>%
+  mutate(
+    year = as.integer(year),
+    population = as.numeric(population)
+  )
+
+```
+
+## 3.3 Join Datasets
+
+  3.3.1 Identify the variable(s) required to join `who_tidy` and `population_tidy`.
+
+```{r}
+colnames(who_tidy)
+colnames(population_tidy)
+
+```
+
+  3.3.2 Rename columns as needed to align variable names between datasets.
+
+```{r}
+population_tidy <- population_tidy %>%
+  rename(country = country)
+
+```
+
+  3.3.3 Join the datasets into a tibble called `tuberculosis`.
+
+```{r}
+tuberculosis <- who_tidy %>%
+  left_join(population_tidy, by = c("country", "year"))
+
+```
+
+## 3.4 Clean Up Data
+
+  3.4.1 Remove unnecessary variables from `tuberculosis`.
+
+```{r}
+tuberculosis <- tuberculosis %>%
+  select(country, year, type, sex, age, cases, population)
+
+```
+
+  3.4.2 Filter out rows with `NA` values.
+
+  3.4.3 Save the cleaned data back into `tuberculosis`.
+
+```{r}
+tuberculosis <- tuberculosis %>%
+  select(country, year, type, sex, age, cases, population) %>%
+  drop_na()
+
+```
+
+## 4. Data Manipulation
+
+  4.1 Determine the total TB cases among men and women in the 21st century in the United States. Identify which sex had more cases.
+
+```{r}
+us_cases <- tuberculosis %>%
+  filter(
+    country == "United States of America",
+    year >= 2000
+  ) %>%
+  group_by(sex) %>%
+  summarise(total_cases = sum(cases))
+
+us_cases
+```
+
+  4.2 Create a new variable, `cases_per_100k`, representing TB cases per 100,000 people by year, sex, age group, and TB type.
+
+```{r}
+tuberculosis <- tuberculosis %>%
+  mutate(
+    cases_per_100k = (cases / population) * 100000
+  )
+tuberculosis
+```
+
+  4.3 Identify:
+
+-   <div>
+
+    -   The country and year with the highest cases per 100k.
+
+    -   The country and year with the lowest cases per 100k.
+
+    </div>
+
+```{r}
+highest_cases <- tuberculosis %>%
+  arrange(desc(cases_per_100k)) %>%
+  slice(1)
+
+highest_cases
+
+```
+
+### Lowest cases per 100k (non-zero to avoid misleading zeros)
+
+```{r}
+lowest_cases <- tuberculosis %>%
+  filter(cases_per_100k > 0) %>%
+  arrange(cases_per_100k) %>%
+  slice(1)
+
+lowest_cases
+
+```
+
+## 5. Data Visualization
+
+  5.1 Plot the total cases per 100k as a function of year for China, India, and the United States:
+
+-   <div>
+
+    -   Use a log scale on the y-axis (`scale_y_log10()`).
+
+    -   Describe emerging patterns.
+
+    </div>
+
+```{r}
+tuberculosis %>%
+  filter(country %in% c("China", "India", "United States of America")) %>%
+  group_by(country, year) %>%
+  summarise(total_cases_100k = sum(cases_per_100k), .groups = "drop") %>%
+  ggplot(aes(x = year, y = total_cases_100k, color = country)) +
+  geom_line() +
+  scale_y_log10() +
+  labs(
+    title = "TB Cases per 100,000 People Over Time",
+    y = "Cases per 100k (log scale)",
+    x = "Year"
+  )
+
+```
+
+  5.2 Compare distributions of total cases per 100k (summed over years, sexes, and TB types) across age groups:
+
+-   <div>
+
+    -   Use a log scale on the y-axis.
+
+    -   Highlight observed patterns.
+
+    </div>
+
+```{r}
+tuberculosis %>%
+  group_by(age) %>%
+  summarise(total_cases_100k = sum(cases_per_100k), .groups = "drop") %>%
+  ggplot(aes(x = age, y = total_cases_100k)) +
+  geom_col() +
+  scale_y_log10() +
+  labs(
+    title = "Distribution of TB Cases per 100k by Age Group",
+    x = "Age Group",
+    y = "Total Cases per 100k (log scale)"
+  )
+
+```
+
+  5.3 Create a plot to evaluate whether the number of cases per 100k in 2000 was related to a country’s population:
+
+-   <div>
+
+    -   Conclude based on the visualization.
+
+    </div>
+
+```{r}
+tuberculosis %>%
+  filter(year == 2000) %>%
+  group_by(country) %>%
+  summarise(
+    total_cases_100k = sum(cases_per_100k),
+    population = mean(population),
+    .groups = "drop"
+  ) %>%
+  ggplot(aes(x = population, y = total_cases_100k)) +
+  geom_point(alpha = 0.6) +
+  scale_x_log10() +
+  scale_y_log10() +
+  labs(
+    title = "TB Cases per 100k vs Population Size (Year 2000)",
+    x = "Population (log scale)",
+    y = "Total Cases per 100k (log scale)"
+  )
+
+```
+
+The visualization suggests no strong direct relationship between population size and TB cases per 100,000. Countries with large populations do not necessarily experience higher TB rates, indicating that TB burden is more closely linked to public health conditions than population size alone.
