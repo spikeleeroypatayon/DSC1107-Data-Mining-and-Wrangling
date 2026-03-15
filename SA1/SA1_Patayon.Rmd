@@ -1,0 +1,828 @@
+---
+title: "Summative Assessment 1"
+author: "PATAYON, SPIKE LEE-ROY V"
+date: "2026-03-07"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+**Objective:** The purpose of this summative assessment is to evaluate students' ability to apply data mining techniques, data visualization, data wrangling, and predictive modeling using R. Students will work with a provided dataset to perform exploratory data analysis, data transformation, model tuning, and regression-based methods.
+
+**Instructions:**
+
+1.  Dataset: Download the provided dataset customer_churn.csv, which contains customer demographics, service usage data, and churn labels.
+
+2.  Tools: Use R and relevant libraries such as tidyverse, caret, glmnet, and ggplot2.
+
+3.  Submission: Submit an R Markdown (.Rmd) file or a Jupyter Notebook (.ipynb) containing your code, visualizations, and explanations.
+
+Before we start, we must import necessary libraries:
+
+```{r}
+library(tidyverse)
+library(caret)
+library(ggplot2)
+library(tidyr)
+library(rpart)
+library(rpart.plot)
+library(glmnet)
+library(randomForest)
+library(MLmetrics)
+```
+
+# **Assessment Tasks:**
+
+## **Unit 1: R for Data Mining**
+
+### **1. Intro to Modern Data Mining**
+
+Load the dataset and provide an overview of its structure (e.g., dimensions, missing values, types of variables).
+
+```{r}
+data = read.csv("C:\\Users\\spike\\Downloads\\customer_churn.csv")
+head(data)
+```
+
+```{r}
+dim(data) # checking dimensions
+```
+
+```{r}
+colSums(is.na(data)) # for missing values
+```
+
+```{r}
+str(data) # for types of variables
+```
+
+For additional information, we can look at the summary statistics of the data set
+
+```{r}
+summary(data)
+```
+
+Explain why data mining is important for this dataset.
+
+Data mining isn't just about running code; it's about extracting actionable intelligence. For a churn dataset, it is vital for three main reasons:
+
+1.  Identifying Hidden Patterns: Human eyes can’t easily see the correlation between "Monthly Charges," "Contract Type," and "Technical Support" across thousands of rows. Data mining algorithms can find the exact threshold where a customer is likely to leave.
+
+2.  Predictive Power (Proactive vs. Reactive): Instead of asking "Why did they leave?" after the fact, data mining allows you to ask "Who is about to leave?" This lets the business intervene with discounts or outreach before the customer cancels.
+
+3.  Resource Allocation: Not all customers are equal. Data mining helps identify "High Value" churners. This ensures the marketing team doesn't waste money trying to save a customer who only spends \$5 a month while letting a \$200-a-month customer slip away.
+
+### **2. Data Visualization**
+
+Create at least three meaningful visualizations to explore relationships in the data (e.g., churn rate by tenure, service type, or monthly charges).
+
+Provide insights based on the visualizations.
+
+Plot 1:
+
+```{r}
+ggplot(data, aes(x = Tenure, fill = Churn)) +
+  geom_density(alpha = 0.5) +
+  labs(title = "Distribution of Tenure by Churn status",
+  x = "Tenure (Months)",
+  y = "Density") +
+    theme_minimal()
+```
+
+1\. Tenure Doesn't Strongly Predict Churn
+
+The biggest insight here is how **similar** the two shapes are. The pink area (people who stayed) and the teal area (people who left) overlap almost perfectly across the entire timeline from 0 to 70 months.
+
+-   In many businesses, you see a huge "teal spike" at the beginning (meaning new people leave quickly).
+
+-   **Here, that isn't happening.** People are leaving at roughly the same rate whether they have been with you for 5 months or 50 months.
+
+2\. A Consistent "Flat" Pattern
+
+The distribution is relatively flat (uniform). This suggests that your customer base is evenly spread out:
+
+-   You have roughly the same number of new customers as you do long-term customers.
+
+-   The risk of someone leaving is **constant**. Time spent with the company doesn't seem to make a customer more "loyal" or "safe" from leaving.
+
+3\. Small Fluctuations
+
+If we look really closely at the tiny "waves" in the graph:
+
+-   **Around 20 months:** There is a tiny teal peak, meaning a small group might be leaving after nearly two years.
+
+-   **Around 40 months:** There is a tiny pink peak, meaning a small group of customers hitting the 3-year mark are slightly more likely to stay.
+
+-   **Warning:** These bumps are very small. They might just be random "noise" in the data rather than a major trend.
+
+Summary
+
+The length of time a customer has been with you **is not the reason** they are leaving. Since the churn pattern is so steady, the reason people leave is likely related to something else—like price changes, customer service issues, or better offers from competitors—rather than how long they've been a member.
+
+Plot2:
+
+```{r}
+ggplot(data, aes(x = Contract, fill = Churn)) +
+  geom_bar(position = "fill") +
+  labs(title = "Churn Rate by Contract Type",
+  x = "Contract Type",
+  y = "Proportion of Customers") +
+  scale_y_continuous(labels = scales::percent)+
+  theme_light()
+```
+
+1\. Contract Type Doesn't Change Churn
+
+The most surprising insight is that **the churn rate is almost exactly the same across all contract types.** \* Whether a customer is on a flexible **Month-to-month** plan or a long-term **Two-year** plan, about **25-27%** of them are leaving (**Churn: Yes**).
+
+-   Usually, long-term contracts (1 or 2 years) have much lower churn because people are "locked in." In this specific data, that isn't happening.
+
+2\. Consistency is Key
+
+The teal bars (the people leaving) are nearly identical in height for all three columns. This tells us:
+
+-   **The "Lock-in" isn't working:** Long-term contracts aren't making customers more loyal.
+
+-   **Month-to-month isn't riskier:** Even though these customers can leave at any time, they aren't leaving at a higher rate than those on long-term plans.
+
+3\. Most People Stay
+
+In every category, the pink section (**Churn: No**) is much larger than the teal section. This means that regardless of the contract, the majority of your customers (roughly **75%**) are choosing to stay.
+
+Summary
+
+Normally, a business would expect long-term contracts to reduce churn. Since it's the same for everyone here, it suggests that **the reason people leave has nothing to do with their contract.** It might be related to the service quality, the price, or something else entirely that affects all customers equally.
+
+Plot3:
+
+```{r}
+ggplot(data, aes(x = Churn, y = MonthlyCharges, fill = Churn)) +
+  geom_boxplot(outlier.colour = "red", alpha = 0.7) +
+  labs(title = "Monthly Charges Distribution by Churn",
+       x = "Churned?",
+       y = "Monthly Charges") +
+  theme_classic()
+```
+
+1\. The Cost is Almost Identical
+
+The most important thing to look at is the **middle line** inside each box. This represents the "average" (median) monthly charge.
+
+-   For both groups, the middle line is at the exact same spot (around **\$70**).
+
+-   This means that, on average, people who leave aren't paying any more than the people who stay.
+
+2\. The Price Range is the Same
+
+The "boxes" show where most customers fall, and the "whiskers" (the thin vertical lines) show the highest and lowest bills.
+
+-   Both boxes start around **\$45** and end near **\$95**.
+
+-   The whiskers for both go from about **\$20** to **\$120**.
+
+-   This tells us that there isn't a specific "expensive" price point that is causing people to quit.
+
+3\. No "Smoking Gun"
+
+In many businesses, you would see the teal box (**Yes**) sitting much higher than the pink box (**No**), which would mean "expensive bills cause people to leave."
+
+-   **Here, that is not the case.** Whether a customer's bill is \$30 or \$100, their chance of leaving seems to be the same.
+
+Overall Conclusion
+
+After looking at **Tenure**, **Contract Type**, and now **Monthly Charges**, we have a clear pattern: **None of these main factors are explaining why people are leaving.** Since price and time don't seem to matter, the "why" is likely hidden in something more specific.
+
+We can explore the data set to find its hidden meaning:
+
+Plot4:
+
+```{r}
+ggplot(data, aes(x = InternetService, fill = Churn)) +
+  geom_bar(position = "dodge") +
+  facet_wrap(~Contract) +
+  labs(title = "Churn by Internet Service and Contract Type",
+       x = "Internet Service Provider",
+       y = "Count of Customers") +
+  theme_minimal()
+```
+
+1\. Month-to-Month is the "Danger Zone"
+
+Look at the first section on the left. The bars are much higher here than anywhere else.
+
+-   **High Volume:** Most of your customers are on Month-to-month plans.
+
+-   **High Risk:** This group has the largest number of people leaving (**teal bars**). In fact, more people leave from the Month-to-month "Fiber optic" group than almost any other category.
+
+2\. Fiber Optic Has a Churn Problem
+
+Look at the teal bars for **Fiber optic** across all three panels:
+
+-   In the **Month-to-month** group, the teal bar for Fiber is very tall compared to the pink bar. This means a large percentage of Fiber customers are quitting.
+
+-   Even in **One-year** and **Two-year** contracts, Fiber optic customers seem slightly more likely to leave compared to DSL customers in those same categories.
+
+3\. Contracts Actually *Do* Work (When Looking at Counts)
+
+In the previous chart, we saw that the *percentage* of churn was similar, but this chart shows us the **total numbers**:
+
+-   As you move from **Month-to-month** to **Two-year** contracts, the total number of people leaving (teal bars) drops significantly.
+
+-   Very few people on **Two-year** contracts leave, regardless of their internet type.
+
+4\. The "No Internet" Group is Loyal
+
+The "No" category (people who likely only have phone service) has very small teal bars relative to their pink bars. These customers are much less likely to leave than those with high-speed internet.
+
+Summary
+
+The biggest "problem area" for the business is **Month-to-month Fiber optic customers**. Because these customers are leaving in such high numbers, the company might want to investigate if there are technical issues with the Fiber service or if the price for Fiber is too high once a "new customer discount" ends.
+
+Plot5:
+
+```{r}
+ggplot(data, aes(x = MonthlyCharges, y = TotalCharges, color = Churn)) +
+  geom_point(alpha = 0.3) + 
+  geom_smooth(method = "lm", se = FALSE)+
+  labs(title = "Monthly vs. Total Charges: The Churn Frontier",
+       x = "Monthly Bill ($)",
+       y = "Cumulative Spend ($)") +
+  theme_bw()
+```
+
+1\. The "Cone" Shape (Time is the Secret)
+
+Notice that the dots spread out into a triangle or cone shape as it move to the right.
+
+-   Dots at the **top** of the triangle represent long-term customers who have spent thousands of dollars over many years.
+
+-   Dots at the **bottom** are likely newer customers who haven't been with the company long enough to spend a lot yet.
+
+2\. High Bills + Low Total Spend = High Risk
+
+Look at the bottom-right area of the graph (high monthly bills, but low cumulative spend).
+
+-   There is a heavy concentration of **teal dots (Yes)** here.
+
+-   This confirms that customers who have high monthly bills right away are more likely to leave before they ever reach a high "Cumulative Spend." They quit early.
+
+3\. The Churn Line
+
+The teal line cutting through the middle represents the "average" path for people who leave.
+
+-   Notice that the line is relatively low on the "Cumulative Spend" axis.
+
+-   This suggests that many people leave **before** they reach the \$4,000 mark in total spending, regardless of whether their monthly bill is \$25 or \$100.
+
+4\. The "Safe Zone"
+
+The very top of the graph is almost entirely **pink dots (No)**.
+
+-   Once a customer has spent more than \$6,000 in total, they are much less likely to leave. These are your most loyal, "high-value" customers.
+
+Summary
+
+The biggest takeaway is that **new customers with high monthly bills** are your most vulnerable group. They haven't built up enough history (Cumulative Spend) to stay through the high costs, leading them to leave early in their journey.
+
+Plot6:
+
+```{r}
+ggplot(data, aes(x = as.factor(SeniorCitizen), fill = Churn)) +
+  geom_bar(position = "fill") +
+  scale_x_discrete(labels = c("Non-Senior", "Senior")) +
+  labs(title = "Churn Proportion: Seniors vs. Non-Seniors",
+       x = "Customer Category",
+       y = "Proportion") +
+  theme_minimal()
+```
+
+This chart compares how many customers left a service (**Churn**) versus those who stayed, specifically looking at **Seniors** compared to **Non-Seniors**.
+
+**1. The Churn Rate is Almost Identical**
+
+It is obvious how similar the two groups are.
+
+-   **Non-Seniors:** The teal section (people who left) sits right around the **0.27 (27%)** mark.
+
+-   **Seniors:** The teal section is also right around **0.27 (27%)**.
+
+**2. Loyalty is the Norm**
+
+In both categories, the large red blocks show that the vast majority of customers—roughly **73%**—are choosing to stay with the service. Age doesn't seem to make a person more or less likely to cancel.
+
+**3. Age is Not a Risk Factor**
+
+Often, businesses assume certain age groups are more "fickle" or likely to leave. However, this visualization proves that **Senior status is not a primary driver for churn** in this specific dataset. Whether a customer is a senior or not, they leave at almost the exact same rate.
+
+### **3. Data Transformation**
+
+Handle missing values appropriately.
+
+We handled this earlier and we found out that there are no missing values in all columns.
+
+Convert categorical variables into factor variables.
+
+```{r}
+df_transform = data %>%
+  mutate(
+    CustomerID = paste0("customer", as.numeric(gsub("CUST", "", CustomerID))),
+    SeniorCitizen = factor(ifelse(SeniorCitizen == 1, "Yes", "No"))
+  )
+
+head(df_transform)
+```
+
+In this section, the **CustomerID** column was renamed to *customer1, customer2,* etc., to simplify the original "CUST00001" format. Additionally, the **SeniorCitizen** column was converted from binary values (0 and 1) to "Yes" and "No" to make the data more accessible to a general audience.
+
+Convert all other character columns to factors for better data analysis
+
+```{r}
+df_final = df_transform %>%
+  mutate(across(where(is.character), as.factor))
+
+head(df_final)
+```
+
+Normalize or standardize numerical features where necessary.
+
+```{r}
+df_final = df_final %>%
+  mutate(
+    Tenure_scaled = as.vector(scale(Tenure)),
+    MonthlyCharges_scaled = as.vector(scale(MonthlyCharges)),
+    TotalCharges_scaled = as.vector(scale(TotalCharges))
+  )
+
+# preview of the new data set 
+df_final %>% 
+  select(Tenure, Tenure_scaled, MonthlyCharges, MonthlyCharges_scaled) %>% 
+  head()
+```
+
+The final dataset for this part is:
+
+```{r}
+head(df_final)
+```
+
+Standardization is a critical preprocessing step that ensures numerical features contribute equally to the predictive model by eliminating scale bias. In the dataset, features like TotalCharges reach values over \$8,000, while Tenure is capped at 72 months; without this step, the model might incorrectly prioritize the larger numerical values of charges over the smaller values of tenure. By transforming these variables into unitless Z-scores, you achieve a common metric where every numerical column has a mean of 0 and a standard deviation of 1, allowing for an "apples-to-apples" comparison.
+
+This process significantly improves algorithm convergence, particularly for gradient-based methods and regularized models like Lasso or Ridge regression, which are sensitive to input scales. Furthermore, standardization simplifies the interpretation of outliers, as any value far from zero (typically beyond $\pm3$) represents a customer significantly different from the average. Most importantly, this technique preserves the original data distribution and the relative distance between data points while centering the information, which is essential for accurate and stable predictive modeling.
+
+### 4. Data Wrangling
+
+Filter data to remove outliers.
+
+Plot first to find any outliers from the dataset
+
+```{r}
+df_long_scaled <- df_final %>%
+  select(Tenure_scaled, MonthlyCharges_scaled, TotalCharges_scaled) %>%
+  pivot_longer(cols = everything(), names_to = "Variable", values_to = "Z_score")
+
+ggplot(df_long_scaled, aes(x = Variable, y = Z_score, fill = Variable)) +
+  geom_boxplot(outlier.colour = "black", outlier.shape = 16) +
+  geom_hline(yintercept = c(3, -3), linetype = "dashed", color = "red") + 
+  labs(title = "Standardized Outlier Detection",
+       subtitle = "Dots above 3 or below -3 are considered extreme outliers",
+       y = "Z-score (Standard Deviations)") +
+  theme_minimal()
+```
+
+Are there any outliers?
+
+**Yes**, there are visible outliers, but they are concentrated in only one variable.
+
+-   **TotalCharges_scaled**: There is a cluster of **red dots** sitting above the top dashed line. Since these points are above the **+3 standard deviation threshold**, they are officially considered extreme outliers.
+
+-   **MonthlyCharges_scaled**: This variable shows no outliers. All data points (the "whiskers") stay well within the $\pm3$ range.
+
+-   **Tenure_scaled**: This variable also shows no outliers, with all data points contained within the safe zones.
+
+Lets remove the outliers
+
+```{r}
+df_no_outliers <- df_final %>%
+  filter(abs(Tenure_scaled) <= 3 & 
+         abs(MonthlyCharges_scaled) <= 3 & 
+         abs(TotalCharges_scaled) <= 3)
+
+head(df_no_outliers)
+```
+
+```{r}
+nrow(df_final) - nrow(df_no_outliers)
+```
+
+```{r}
+df_long_no_outliers <- df_no_outliers %>%
+  select(Tenure_scaled, MonthlyCharges_scaled, TotalCharges_scaled) %>%
+  pivot_longer(cols = everything(), names_to = "Variable", values_to = "Z_score")
+
+ggplot(df_long_no_outliers, aes(x = Variable, y = Z_score, fill = Variable)) +
+  geom_boxplot(outlier.colour = "black", outlier.shape = 16) +
+  geom_hline(yintercept = c(3, -3), linetype = "dashed", color = "red") + 
+  labs(title = "Cleaned Data: Standardized Boxplot (No Outliers)",
+       subtitle = "All data points now fall within the +/- 3 standard deviation threshold",
+       y = "Z-score (Standard Deviations)") +
+  theme_minimal()
+```
+
+Create new derived variables that may help in predictive modeling.
+
+```{r}
+df_derived <- df_no_outliers %>%
+  mutate(
+    # 1. Average Monthly Spend over lifetime
+    # (Checking if their current bill is much higher than their historical average)
+    AvgLifetimeSpend = TotalCharges / (Tenure + 1), 
+    
+    # 2. Service Diversity
+    # (Do they use both Phone and Internet? Multiple services often increase loyalty)
+    MultiService = factor(if_else(PhoneService == "Yes" & InternetService != "No", "Yes", "No")),
+    
+    # 3. High-Cost Short-Term Risk
+    # (Flagging customers with high bills on month-to-month contracts)
+    HighCostRisk = factor(if_else(MonthlyCharges > 70 & Contract == "Month-to-month", "Yes", "No"))
+  )
+
+head(df_derived)
+```
+
+Aggregate or summarize data if necessary.
+
+```{r}
+# Summarize churn risk by Contract and Internet Service
+churn_summary <- df_derived %>%
+  group_by(Contract, InternetService) %>%
+  summarise(
+    AvgTenure = mean(Tenure),
+    AvgMonthly = mean(MonthlyCharges),
+    ChurnRate = mean(if_else(Churn == "Yes", 1, 0)),
+    TotalCustomers = n()
+  )
+
+ head(churn_summary)
+```
+
+### 5. Review
+
+Summarize key takeaways from the exploratory data analysis process.
+
+**1. Identification of Uniform Churn Distribution**
+
+-   **Observation**: Visual analysis of the proportion of customers staying versus leaving revealed nearly identical patterns across primary demographic and service categories.
+
+-   **Finding**: Factors such as being a Senior Citizen or a Non-Senior showed a consistent churn rate of approximately 25% to 28%, suggesting that no single demographic group is inherently more prone to leaving.
+
+-   **Strategic Implication**: Because there is no obvious "smoking gun" in the individual variables, advanced predictive modeling is required to identify complex interactions between features.
+
+**2. Standardization and Feature Scaling**
+
+-   **Process**: Continuous numerical variables, including **Tenure**, **MonthlyCharges**, and **TotalCharges**, were transformed into standardized $Z$-scores.
+
+-   **Purpose**: This process centers the data at a mean of 0 with a standard deviation of 1, eliminating scale bias.
+
+-   **Benefit**: Standardization ensures that variables with large ranges (like Total Charges) do not disproportionately influence the model coefficients compared to smaller-scale variables like Tenure.
+
+**3. Statistical Outlier Detection and Mitigation**
+
+-   **Observation**: A standardized boxplot analysis identified a specific cluster of extreme values within the `TotalCharges_scaled` feature that exceeded the $+3$ standard deviation threshold.
+
+-   **Action**: These outliers were systematically removed to prevent them from skewing the statistical distributions and degrading the performance of the regression algorithms.
+
+-   **Outcome**: The resulting "cleaned" dataset (`df_no_outliers`) represents the core customer population more accurately, leading to more stable model predictions.
+
+**4. Structural Data Refinement**
+
+-   **Process**: Categorical labels were refined for clarity, such as converting `SeniorCitizen` from binary integers (0, 1) to descriptive factors ("No", "Yes").
+
+-   **Formatting**: Unique identifiers were standardized to a sequential "customer1" format to improve legibility for reporting while maintaining data integrity.
+
+-   **Result**: Converting character strings into formal "Factor" variables allows the R modeling environment to correctly interpret categorical groups during the training phase.
+
+**5. Transition to Predictive Analytics**
+
+-   **Summary**: The EDA process confirmed that while individual variables provide a baseline understanding, they do not offer a clear predictive signal on their own.
+
+-   **Next Step**: The project is now prepared to transition to the **Model Tuning** phase, where Logistic Regression and other machine learning techniques will be applied to the cleaned, standardized dataset to forecast churn risk.
+
+------------------------------------------------------------------------
+
+## **Unit 2: Tuning Predictive Models**
+
+### 1. Model Complexity
+
+Fit a decision tree and logistic regression model.
+
+```{r}
+log_model <- glm(Churn ~ Tenure_scaled + MonthlyCharges_scaled + TotalCharges_scaled + Contract + InternetService, 
+                 data = df_no_outliers, 
+                 family = "binomial")
+
+summary(log_model)
+```
+
+```{r}
+# B. Fit a Decision Tree Model
+# Trees don't strictly require scaling, but we use the same data for a fair comparison.
+tree_model <- rpart(Churn ~ Tenure + MonthlyCharges + TotalCharges + Contract + InternetService, 
+                    data = df_no_outliers, 
+                    method = "class")
+
+summary(tree_model)
+```
+
+Compare their complexities and explain trade-offs.
+
+Complexity refers to how "flexible" a model is. A model that is too simple might miss patterns, while one that is too complex might overreact to random noise in your data.
+
+|  |  |  |
+|------------------------|------------------------|------------------------|
+| **Feature** | **Logistic Regression** | **Decision Tree** |
+| **Structure** | A single linear equation ($y = mx + b$). | A branching structure of rules. |
+| **Complexity Level** | **Low.** It assumes a straight-line relationship between variables. | **Variable.** Can be simple (2 branches) or highly complex (100+ branches). |
+| **Interactions** | Struggles to find "hidden" combinations unless you manually add them. | Naturally finds combinations (e.g., "If Senior AND Fiber Optic..."). |
+
+When choosing between these two for your management report, consider these three key trade-offs:
+
+-   **Interpretability (The "Why")**:
+
+    -   **Decision Trees** are easier for non-technical managers to understand because they look like a flowchart.
+
+    -   **Logistic Regression** is harder to visualize but gives you a specific "odds ratio" (e.g., "A 1-unit increase in Monthly Charges increases churn risk by 15%").
+
+-   **The Linear Assumption**:
+
+    -   **Logistic Regression** assumes that as a variable (like Monthly Charges) goes up, the risk of churn moves in a steady, straight direction.
+
+    -   **Decision Trees** do not care about straight lines; they can find "tipping points" (e.g., "Churn is low until \$70, then it spikes, then it levels off").
+
+-   **Overfitting Risk**:
+
+    -   **Decision Trees** have a high risk of becoming "too complex" by memorizing the training data instead of learning general patterns.
+
+    -   **Logistic Regression** is generally more stable and less likely to overfit small fluctuations in the data.
+
+### 2. Bias-Variance Trade-Off
+
+Explain the concept of bias-variance trade-off in the context of the models trained.
+
+Think of this as the "Target Practice" of data science:
+
+-   **Bias (Underfitting)**: This happens when your model is too simple. For example, if you used a **Logistic Regression** model that only looked at `MonthlyCharges`, it might assume price is the *only* reason people leave. Because it ignores the complex reality, it "misses the bullseye" consistently. It has **high bias**.
+
+-   **Variance (Overfitting)**: This happens when your model is too complex. If you grew a **Decision Tree** with 50 different branches, it might start noticing random "flukes" in your specific dataset—like "Customers named John who joined on a Tuesday never leave." This model is too sensitive to the training data. It has **high variance**.
+
+Discuss how model complexity affects performance.
+
+**Low Complexity (High Bias)**
+
+-   **The Model**: A simple Logistic Regression or a Decision Tree with only one split.
+
+-   **The Performance**: The model is "stiff." It performs roughly the same on both your training data and your test data, but the accuracy is likely low because it hasn't learned the "hidden" patterns your EDA suggested might exist.
+
+**High Complexity (High Variance)**
+
+-   **The Model**: A massive Decision Tree with many deep branches or a regression with dozens of "derived variables."
+
+-   **The Performance**: This model will look perfect on your **Training Set** (nearly 100% accuracy). However, when you give it the **Test Set**, the accuracy will crash because the model "memorized" the noise rather than learning the actual churn behavior.
+
+### 3. Cross-Validation
+
+Use k-fold cross-validation (k=10) to evaluate model performance.
+
+```{r}
+#train_control <- trainControl(
+  #method = "cv",
+  #number = 10,
+  #savePredictions = "final"
+#)
+```
+
+```{r}
+#model <- train(
+  #Churn ~ ., 
+  #data = df_no_outliers,
+  #method = "glm",
+  #family = "binomial",
+  #trControl = train_control
+#)
+```
+
+```{r}
+# B. Evaluate Decision Tree
+#set.seed(123)
+#cv_tree_model <- train(Churn ~ ., 
+                       #data = df_no_outliers, 
+                       #method = "rpart", 
+                       #trControl = train_control,
+                       #metric = "ROC")
+```
+
+Report and interpret accuracy, precision, recall, and F1-score.
+
+### 4. Classification
+
+Train a Random Forest classifier to predict customer churn.
+
+```{r}
+#set.seed(123)
+#rf_model <- randomForest(Churn ~ ., 
+                         #data = df_no_outliers, 
+                         #importance = TRUE)
+```
+
+Tune hyperparameters using grid search.
+
+```{r}
+# Define the grid of parameters to test
+#tune_grid <- expand.grid(mtry = c(2, 3, 4, 5))
+
+# Use 10-fold cross-validation to find the best mtry
+#set.seed(123)
+#rf_tuned <- train(Churn ~ ., 
+                  #data = df_no_outliers, 
+                  #method = "rf", 
+                  #tuneGrid = tune_grid, 
+                  #trControl = train_control)
+
+# View the best hyperparameter
+#print(rf_tuned$bestTune)
+```
+
+Report final model performance.
+
+------------------------------------------------------------------------
+
+## **Unit 3: Regression-Based Methods**
+
+### 1. Logistic Regression
+
+Fit a logistic regression model using `Churn` as the dependent variable and `Tenure`, `MonthlyCharges`, and `TotalCharges` as independent variables.
+
+```{r}
+logit_model <- glm(Churn ~ Tenure_scaled + MonthlyCharges_scaled + TotalCharges_scaled, 
+                   data = df_no_outliers, 
+                   family = "binomial")
+
+summary(logit_model)
+```
+
+Interpret the coefficients and assess model significance using p-values.
+
+**1. Assessing Significance (The P-Values)**
+
+The most important column is `Pr(>|z|)`. In statistics, we look for values **less than 0.05** to claim a variable is a "significant" predictor.
+
+-   **The Intercept**: This is highly significant ($< 2e-16$), which basically just sets the baseline "average" churn rate for your dataset.
+
+-   **Tenure, MonthlyCharges, and TotalCharges**: **None of these are significant.** Their p-values ($0.231$, $0.551$, and $0.260$) are all much higher than $0.05$.
+
+-   **Conclusion**: This confirms what you saw in your earlier plots—churn is so uniform across these numbers that the model can't find a reliable "trigger" point using just these three variables.
+
+**2. Interpreting the Coefficients (The Estimates)**
+
+Even though they aren't statistically significant, the directions (positive or negative) still tell a story about the "trends" in your data:
+
+-   **Tenure_scaled (0.070)**: This is positive, which is actually unusual. It suggests that in this specific limited model, more tenure slightly *increases* churn risk—but because the p-value is so high ($0.231$), we shouldn't trust this as a solid rule.
+
+-   **MonthlyCharges_scaled (0.026)**: A positive value suggests higher bills might lead to more churn, but the impact is very weak.
+
+-   **TotalCharges_scaled (-0.078)**: A negative value suggests that higher total lifetime spend might slightly *decrease* the risk of leaving.
+
+**3. Model Fit (Deviance & AIC)**
+
+-   **Null vs. Residual Deviance**: Your Null Deviance (starting point) is **11638**, and your Residual Deviance (after adding variables) is **11636**.
+
+-   **The Insight**: The model only improved by **2 points**. This means adding these three variables barely helped the model explain the data better than just guessing the average.
+
+> "The logistic regression analysis indicates that **Tenure**, **MonthlyCharges**, and **TotalCharges** are not statistically significant predictors of churn ($p > 0.05$) when analyzed in isolation. This mathematically validates our initial EDA findings, which showed that churn rates remained relatively constant across various customer segments. The minor difference between the Null and Residual deviance suggests that a simple linear combination of these numerical features is insufficient to capture the complexities of customer behavior. This result justifies our next step: using a **Decision Tree** or **Random Forest**, which can find non-linear interactions (e.g., how a specific contract type might interact with monthly charges) that this simple regression missed."
+
+### 2. Regression in High Dimensions
+
+Discuss the challenges of high-dimensional regression and potential solutions.
+
+1\. Challenges of High-Dimensional Regression
+
+High-dimensional regression occurs when the number of features ($p$) is large relative to the number of observations ($n$). This leads to several issues:
+
+-   **The Curse of Dimensionality**: As the number of dimensions increases, the data points become sparse, making it difficult for the model to find a reliable "trend".
+
+-   **Multicollinearity**: Many variables may be highly correlated (e.g., `Tenure` and `TotalCharges`), which confuses the model about which variable is actually driving the outcome.
+
+-   **Overfitting**: With too many dimensions, the model might "memorize" the noise in the training data rather than learning general patterns, leading to poor performance on new data.
+
+**Potential Solutions**:
+
+-   **Feature Selection**: Manually or automatically removing irrelevant variables.
+
+-   **Regularization**: Using techniques like Lasso or Ridge regression to penalize complex models.
+
+-   **Dimensionality Reduction**: Using techniques like **PCA** to compress many variables into a few "super-variables."
+
+Apply Principal Component Analysis (PCA) on numerical features (`Tenure`, `MonthlyCharges`, `TotalCharges`) to reduce dimensionality.
+
+```{r}
+# 1. Select the standardized numerical features
+numerical_features <- df_no_outliers %>%
+  select(Tenure_scaled, MonthlyCharges_scaled, TotalCharges_scaled)
+
+# 2. Perform PCA
+pca_result <- prcomp(numerical_features)
+
+# 3. View the importance of each component
+summary(pca_result)
+
+# 4. View how the original variables contribute to the components (Loadings)
+print(pca_result$rotation)
+```
+
+### 3. Ridge Regression
+
+Implement Ridge Regression using `Churn` as the target variable and `Tenure`, `MonthlyCharges`, `TotalCharges`, and additional customer demographic features as predictors.
+
+```{r}
+library(glmnet)
+
+# 1. Prepare the data matrix (x) and target vector (y)
+# We include Tenure, MonthlyCharges, TotalCharges, and categorical demographics
+x <- model.matrix(Churn ~ Tenure_scaled + MonthlyCharges_scaled + TotalCharges_scaled + 
+                  SeniorCitizen + Partner + Dependents, data = df_no_outliers)[,-1]
+y <- df_no_outliers$Churn
+
+# 2. Fit the Ridge Regression model (alpha = 0 signifies Ridge)
+ridge_model <- glmnet(x, y, family = "binomial", alpha = 0)
+
+print(ridge_model)
+```
+
+```{r}
+# 3. Perform 10-fold Cross-Validation to find optimal lambda
+set.seed(123)
+cv_ridge <- cv.glmnet(x, y, family = "binomial", alpha = 0)
+
+# 4. Identify the best lambda values
+best_lambda <- cv_ridge$lambda.min  # Lambda that minimizes prediction error
+stable_lambda <- cv_ridge$lambda.1se # Most parsimonious lambda within 1 std error
+
+best_lambda
+stable_lambda
+```
+
+Identify the optimal lambda using cross-validation.
+
+Through 10-fold cross-validation, we identified the optimal penalty parameter ($\lambda$) for our Ridge Regression. The Best Lambda (3.4067) minimizes prediction error, while the Stable Lambda (4.9425) provides a more conservative model that prioritizes simplicity. By applying this regularization, we have mitigated the issues of multicollinearity between **Tenure** and **TotalCharges**, resulting in a model that is more robust and better equipped to generalize across the broader customer base.
+
+### 4. Lasso Regression
+
+Implement Lasso Regression with the same feature set as Ridge Regression.
+
+```{r}
+library(glmnet)
+
+# 1. Prepare the data (same as Ridge)
+x <- model.matrix(Churn ~ Tenure_scaled + MonthlyCharges_scaled + TotalCharges_scaled + 
+                  SeniorCitizen + Partner + Dependents, data = df_no_outliers)[,-1]
+y <- df_no_outliers$Churn
+
+# 2. Fit the Lasso model (alpha = 1)
+lasso_model <- glmnet(x, y, family = "binomial", alpha = 1)
+
+# 3. Find the optimal lambda for Lasso
+set.seed(123)
+cv_lasso <- cv.glmnet(x, y, family = "binomial", alpha = 1)
+
+# 4. View shrunken coefficients at the best lambda
+coef(cv_lasso, s = "lambda.min")
+```
+
+Discuss feature selection benefits and interpret the coefficients.
+
+**1. Interpreting the Sparse Matrix**
+
+In your output, the dots (`.`) indicate that the Lasso model has forced those coefficients to **exactly zero**.
+
+-   **What remained**: Only the **(Intercept)** has a value (-0.993).
+
+-   **What was removed**: Tenure, Monthly Charges, Total Charges, Senior Citizen status, Partners, and Dependents were all dropped by the model.
+
+**2. What This Means for Your Data**
+
+When Lasso sets every predictor to zero, it is sending a strong statistical message: **None of these variables, in their current form, are strong enough to reliably predict churn**.
+
+-   **Confirmation of EDA**: This mathematically confirms what you saw in your initial plots—that churn is so evenly spread across these groups that a linear model cannot find a "rule" to separate people who leave from people who stay.
+
+-   **Zero Feature Selection**: The model has decided that the "best" prediction it can make is to simply guess the average churn rate (the Intercept) for every customer, regardless of their age, tenure, or spending.
+
+**3. Why did this happen?**
+
+1.  **Uniformity**: As your EDA showed, the churn rate for Seniors vs. Non-Seniors and different Tenure levels is nearly identical.
+
+2.  **Weak Linear Signal**: The relationship between these factors and churn is likely **non-linear**. Lasso (a linear method) can't find the "tipping points" that a Decision Tree or Random Forest might catch.
+
+3.  **Regularization Strength**: The penalty ($\lambda$) was high enough that the model decided "no information" was better than "noisy information".
+
+> "The Lasso Regression results provide a critical insight: when subjected to automatic feature selection, all included predictors—including **Tenure**, **MonthlyCharges**, and **Demographics**—were reduced to zero. This signifies that these variables do not have a sufficiently strong linear relationship with churn to overcome the model's penalty threshold. This result further justifies the move toward **Ensemble Methods** like **Random Forest**, which do not rely on linear assumptions and can uncover the hidden, non-linear interactions that Lasso has effectively filtered out."
