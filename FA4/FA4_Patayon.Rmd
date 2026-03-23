@@ -1,0 +1,449 @@
+---
+title: "Formative Assessment 4"
+author: "PATAYON, SPIKE LEE-ROY V"
+date: "2026-03-23"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# **Regression & Tree-Based Methods**
+
+**Dataset:** [UCI Adult Income Dataset]{.underline}\
+**Total: 30 points**
+
+## **Dataset Download Instructions**
+
+Download the dataset from the following source:
+
+-   Primary source: [https://archive.ics.uci.edu/ml/datasets/adultLinks to an external site.](https://archive.ics.uci.edu/ml/datasets/adult)
+
+-   Direct CSV (recommended): <https://raw.githubusercontent.com/selva86/datasets/master/Adult.csv>
+
+## **Dataset Description**
+
+This dataset contains census information used to predict whether an individual earns:
+
+-   `<=50K` (0)
+
+-   `>50K` (1)
+
+### **Key Variables**
+
+-   `age`, `workclass`, `education`, `occupation`
+
+-   `hours_per_week`, `capital_gain`, `capital_loss`
+
+-   `sex`, `race`, `marital_status`
+
+-   **Target:** `income`
+
+# **Instructions**
+
+-   Use **R with tidyverse** (required).
+
+-   Convert categorical variables into factors.
+
+-   Provide **tables and visualizations** where appropriate.
+
+-   Interpret results using **bold text**.
+
+-   Submit as **PDF with R Markdown code**.
+
+```{r}
+library(tidyverse)
+library(caret)
+library(dplyr)
+library(car)
+library(glmnet)
+library(rpart)
+library(rpart.plot)
+library(randomForest)
+```
+
+# **Assessment Tasks (30 points)**
+
+## **Part 1: Data Preparation (4 points)**
+
+### **Import (2 points)**
+
+-   Load the dataset into a tibble called `adult_raw`.
+
+```{r}
+df = read.csv("C:\\Users\\spike\\Downloads\\adult_data.csv")
+adult_raw = as_tibble(df)
+head(adult_raw)
+
+```
+
+-   Display the structure of the dataset.
+
+```{r}
+glimpse(df)
+```
+
+Quick summary for the entire dataset
+
+```{r}
+summary(adult_raw)
+```
+
+### **Tidy & Explore (2 points)**
+
+-   Check for missing values (`?` entries should be handled).
+
+```{r}
+colSums(is.na(adult_raw))
+```
+
+no missing values for this dataset
+
+-   Convert categorical variables into factors.
+
+```{r}
+adult_clean = adult_raw %>%
+  mutate(across(where(is.character), as.factor))
+
+head(adult_clean)
+```
+
+-   Provide summary statistics.
+
+```{r}
+summary(adult_clean)
+```
+
+## **Part 2: Logistic Regression (6 points)**
+
+-   Fit a **logistic regression model** predicting `income`. (2 pts)
+
+```{r}
+model = glm(income ~ .,
+             data = adult_clean,
+             family = "binomial")
+
+summary(model)
+```
+
+-   Identify significant predictors. (2 pts)
+
+1.  **Highly Significant Predictors (**p<0.001**, marked \*\*\*)**
+
+These are the strongest drivers in your model. Changes in these variables have a very high probability of being associated with a change in income level.
+
+-   Continuous Variables: age, fnlwgt (Final Weight), capital_gain, capital_loss, hours_per_week.
+
+-   Education: Assoc-acdm, Assoc-voc, Bachelors, Doctorate, HS-grad, Masters, Prof-school, Some-college.
+
+-   Workclass: Federal-gov, Private, Self-emp-inc.Marital Status: Married-AF-spouse, Married-civ-spouse, Never-married.
+
+-   Occupation: Exec-managerial, Farming-fishing, Handlers-cleaners, Other-service, Prof-specialty, Protective-serv, Sales, Tech-support.
+
+-   Relationship: Wife.
+
+-   Demographics: sex Male.
+
+2.  **Moderately Significant Predictors (**0.001<p<0.01**, marked \*\*)**
+
+These show strong evidence of an effect but are slightly less certain than the group above.
+
+-   Workclass: Local-gov.
+
+-   Race: White.
+
+-   Native Country: Italy, United-States.
+
+3.  **Significant Predictors (**0.01<p<0.05**, marked \*)**
+
+**These meet the standard scientific threshold for significance.**
+
+-   Education: 7th-8th.
+
+-   Occupation: Craft-repair, Priv-house-serv.
+
+-   Relationship: Not-in-family, Own-child.
+
+-   Race: Asian-Pac-Islander.Native \*
+
+-   Country: Cambodia, Columbia, Germany, Philippines, South.
+
+<!-- -->
+
+-   Compute classification accuracy using a **0.5 threshold**. (2 pts)
+
+```{r}
+
+prob = predict(model, type = "response")
+
+actual_clean = trimws(as.character(adult_clean$income))
+
+print(unique(actual_clean))
+
+pred = ifelse(prob > 0.5, ">50K", "<=50K")
+
+accuracy = mean(pred == actual_clean)
+print(accuracy)
+```
+
+The classification model was evaluated to determine its ability to predict whether an individual's income exceeds **\$50,000** annually. After resolving initial label synchronization issues, the model achieved a final classification accuracy of **85.33%**. This indicates a high level of predictive performance, significantly exceeding the baseline accuracy of a "naive" model (which would typically hover around 75-76% for this specific dataset).
+
+## **Part 3: Regression in High Dimensions (4 points)**
+
+In this section, you will transform the [UCI Adult Income Dataset]{.underline} into a **high-dimensional dataset**.
+
+Convert all categorical variables into dummy variables (one-hot encoding). (1 pt)
+
+Store the transformed dataset as adult_hd. Report the number of observations (n) and predictors (p). (1 pt)
+
+```{r}
+adult_clean$income <- as.factor(adult_clean$income)
+
+dummies <- dummyVars(income ~ ., data = adult_clean)
+
+adult_hd <- data.frame(predict(dummies, newdata = adult_clean))
+
+adult_hd$income <- adult_clean$income
+```
+
+Report the number of observations (**n**) and predictors (**p**). (1 pt)
+
+Explain why this dataset can now be considered high-dimensional. (1 pt)
+
+```{r}
+n <- nrow(adult_hd)
+p <- ncol(adult_hd) - 1  # exclude target
+
+n
+p
+```
+
+**Number of Observations and Predictors**
+
+The transformed dataset contains 32,561 observations (n) and 108 predictors (p) after converting categorical variables into dummy variables through one-hot encoding.
+
+**Why This is High-Dimensional**
+
+The dataset can be considered high-dimensional because the number of predictors (p = 108) is relatively large compared to the number of observations (n = 32,561), especially compared to the original dataset which had far fewer variables.
+
+The increase in dimensionality is due to one-hot encoding, where each category level of categorical variables is converted into separate binary columns. This significantly increases the feature space and model complexity.
+
+Fit a standard logistic regression model using adult_hd.
+
+```{r}
+model_hd <- glm(income ~ .,
+                data = adult_hd,
+                family = "binomial")
+summary(model_hd)
+```
+
+1\. Summary of Model Performance
+
+-   **Null Deviance:** 35,948 (Baseline model with no predictors)
+
+-   **Residual Deviance:** 20,566 (Model with your predictors)
+
+-   **AIC:** 20,766
+
+-   **Fisher Scoring Iterations:** 25 (This is a major red flag; standard models converge in 4–8 iterations. 25 suggests the model struggled to find a solution).
+
+2\. Significant Predictors
+
+Despite the instability, the following variables show the strongest and most robust relationships with higher income ($p < 0.001$):
+
+-   **Demographics:** `age`, `sex..Female` (negative coefficient), `race..Black` (negative).
+
+-   **Education:** `Bachelors`, `Masters`, `Doctorate`, and `Prof.school` are powerful positive predictors. Lower education levels (e.g., `1st.4th`, `7th.8th`) are strong negative predictors.
+
+-   **Financials:** `capital_gain`, `capital_loss`, and `hours_per_week` are all highly significant positive drivers.
+
+-   **Family/Role:** `Married.civ.spouse` and `Husband` (implied via relationship status) significantly increase the odds of being in the high-income bracket.
+
+3\. Critical Issues Encountered
+
+The model is currently unreliable for inference due to the following three technical failures:
+
+**A. Perfect Multicollinearity (Singularities)**
+
+The output notes **"9 not defined because of singularities."** \* **The Cause:** This is the **Dummy Variable Trap**. By including every possible category (e.g., both `sex..Female` and `sex..Male`), the variables become perfectly redundant.
+
+-   **The Result:** R automatically dropped `sex..Male`, `education_num`, and several others. The model cannot calculate their unique impact because they are mathematically indistinguishable from other included variables.
+
+**B. Exploding Coefficients & Standard Errors**
+
+Look at the `Intercept` and `workclass` estimates (e.g., **4.614e+12**).
+
+-   **The Issue:** These coefficients are effectively **infinity**. A standard error of **4.297e+12** means the model has no confidence in these numbers.
+
+-   **The Cause:** This is caused by **Perfect Separation**. For instance, in the `workclass..Never.worked` category, it’s likely that 100% of the observations have an income of `<=50K`. The logistic curve tries to go to negative infinity to reach a probability of zero.
+
+**C. Convergence Failure**
+
+The warning regarding **"fitted probabilities numerically 0 or 1"** and the high iteration count (25) means the maximum likelihood estimation failed to converge. The p-values for the "exploding" variables (like `workclass`) are mathematically invalid and should be ignored.
+
+4\. Comparison Table: What the Model "Sees"
+
+|  |  |  |
+|----|----|----|
+| **Predictor Type** | **Impact on Income** | **Statistical Reliability** |
+| **Continuous (Age, Capital Gain)** | Positive | **High** |
+| **Higher Education (Masters/PhD)** | Positive | **High** |
+| **Workclass Categories** | Mixed / Extreme | **Low (Unstable)** |
+| **Rare Native Countries** | Extreme | **Low (Overfit)** |
+
+Describe any issues encountered, such as:
+
+multicollinearity
+
+unstable coefficients
+
+overfitting (1 pt)
+
+1\. Multicollinearity (The "Singularity" Issue)
+
+Multicollinearity occurs when predictor variables are so highly correlated that the model cannot distinguish their individual effects.
+
+-   **Evidence:** The message **"9 not defined because of singularities"** and the `NA` values for `education_num`, `sex..Male`, and `race..White`.
+
+-   **The Cause:** This is the **Dummy Variable Trap**. By creating a column for every category (e.g., both Male and Female), you created perfect redundancy. If the model knows someone is not Female, it knows with 100% certainty they are Male.
+
+-   **Impact:** The math "breaks" because the matrix cannot be inverted. R handles this by forcibly dropping variables, but it makes the Intercept difficult to interpret.
+
+2\. Unstable Coefficients (Exploding Standard Errors)
+
+This is the most alarming issue in your output, evidenced by the astronomical values in the `Estimate` and `Std. Error` columns.
+
+-   **Evidence:** Look at `workclass..Federal.gov`. The estimate is `-4.614e+12` (trillions!) with a standard error of `4.297e+12`.
+
+-   **The Cause:** This is **Perfect Separation**. It occurs when a specific category (like a rare country or workclass) perfectly predicts the outcome (e.g., everyone in that group earns \<=50K).
+
+-   **Impact:** The Logistic function tries to reach a probability of 0 or 1 by pushing the coefficient to infinity. This results in **unstable coefficients** that are mathematically "meaningless" and p-values (like 0.28 for workclass) that are completely unreliable.
+
+3\. Overfitting
+
+Overfitting happens when a model is so complex that it "memorizes" the noise and specific quirks of the training data rather than learning general patterns.
+
+-   **Evidence:** You have over **100 predictors** for this dataset. Specifically, including every single `native_country` (many of which likely have only a few observations) forces the model to create "rules" for tiny subgroups.
+
+-   **The Cause:** Including too many sparse categorical variables without grouping them (e.g., keeping "Holand-Netherlands" as its own category instead of grouping it into "Other" or "Europe").
+
+-   **Impact:** While the model might look like it fits the current data well, it will likely fail on new data because it has "over-learned" the specific identities of the people in this specific `adult_hd` table.
+
+## **Part 4: Ridge and Lasso Regression (6 points)**
+
+In this section, you will use the **same high-dimensional dataset (`adult_hd`) created in Part 3**.
+
+**Instructions**
+
+Using `adult_hd`, fit a **Ridge regression model** with cross-validation to determine the optimal lambda. (2 pts)
+
+-   Using the same dataset, fit a **Lasso regression model** with cross-validation. (2 pts)
+
+<!-- -->
+
+-   Identify which variables are retained (non-zero coefficients) in the Lasso model. (1 pt)
+
+-   Compare Ridge vs Lasso in the context of the issues observed in Part 3:
+
+    -   How do they address multicollinearity?
+
+    -   How do they affect model complexity?\
+        (1 pt)
+
+## **Part 5: Decision Trees (5 points)**
+
+### **Growing Trees (2 points)**
+
+-   Fit a decision tree model predicting `income`.
+
+```{r}
+adult_clean$income <- as.factor(adult_clean$income)
+tree_model <- rpart(
+  income ~ ., 
+  data = adult_clean, 
+  method = "class"
+)
+```
+
+-   Visualize the tree.
+
+```{r}
+rpart.plot(tree_model, type = 2, extra = 104)
+```
+
+### **Tree Pruning (2 points)**
+
+-   Perform pruning using cross-validation.
+
+```{r}
+printcp(tree_model)
+plotcp(tree_model)
+```
+
+```{r}
+best_cp <- tree_model$cptable[which.min(tree_model$cptable[, "xerror"]), "CP"]
+
+pruned_tree <- prune(tree_model, cp = best_cp)
+```
+
+-   Compare performance before and after pruning.
+
+```{r}
+# Predictions BEFORE pruning
+pred_before <- predict(tree_model, adult_clean, type = "class")
+
+# Predictions AFTER pruning
+pred_after <- predict(pruned_tree, adult_clean, type = "class")
+
+# Accuracy
+acc_before <- mean(pred_before == adult_clean$income)
+acc_after <- mean(pred_after == adult_clean$income)
+
+acc_before
+acc_after
+```
+
+The classification accuracy before and after pruning is the same at **84.45%**. This indicates that pruning did not negatively affect the model’s predictive performance.
+
+Despite having the same accuracy, the pruned tree is preferred because it is simpler and less complex. Pruning removes unnecessary branches that do not significantly improve prediction, thereby reducing the risk of overfitting and improving model interpretability.
+
+This result suggests that the original tree may have contained redundant splits that did not contribute to better classification, and pruning successfully simplified the model without sacrificing accuracy.
+
+### **Interpretation (1 point)**
+
+-   Identify the most important predictors.
+
+```{r}
+tree_model$variable.importance
+```
+
+The most important predictors identified by the decision tree include variables such as age, education level, hours worked per week, and marital status. These variables contribute the most to splitting decisions and play a key role in determining income classification.
+
+## **Part 6: Bagging (5 points)**
+
+-   Implement **bagging** (bootstrap aggregation). (2 pts)
+
+```{r}
+set.seed(123)
+
+bagging_model <- randomForest(
+  income ~ ., 
+  data = adult_clean,
+  mtry = ncol(adult_clean) - 1, 
+  importance = TRUE
+)
+```
+
+-   Compare performance with a single tree. (2 pts)
+
+```{r}
+pred_bag <- predict(bagging_model, adult_clean)
+
+acc_bag <- mean(pred_bag == adult_clean$income)
+acc_bag
+```
+
+-   Explain why bagging improves model performance. (1 pt)
+
+Bagging improves model performance by reducing variance. It creates multiple bootstrap samples from the original dataset and fits a decision tree on each sample. The final prediction is obtained by averaging (or voting) across all trees. This process reduces the impact of noise and prevents overfitting, resulting in more stable and accurate predictions compared to a single decision tree.
