@@ -1,0 +1,329 @@
+---
+title: "Formative Assessment 6"
+author: "PATAYON, SPIKE LEE-ROY V"
+date: "2026-04-14"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# **Instructions**
+
+1.  Download the dataset: **Customer Churn Dataset.**.
+
+2.  Perform the analysis using **Python (Jupyter Notebook), R Markdown, or any Markdown-supported environment**.
+
+3.  You are required to implement a **Neural Network model** based on the concepts discussed in class (hidden layers, activation functions, SGD, etc.).
+
+4.  Clearly show:
+
+    -   Code
+
+    -   Outputs (tables/plots)
+
+    -   Brief explanations (1–3 sentences per task)
+
+5.  Submit your work, **group submission allowed, max 2 members per group under FA 6 Group**.
+
+6.  File format: **PDF or HTML export** of your notebook/markdown.
+
+------------------------------------------------------------------------
+
+```{r}
+library(ggplot2)
+library(keras3)
+```
+
+# **Assessment Tasks**
+
+## **a. Data Preparation (5 points)**
+
+-   Load the dataset and display the first 10 observations.
+
+```{r}
+df = read.csv("C:\\Users\\spike\\Downloads\\WA_Fn-UseC_-Telco-Customer-Churn.csv")
+
+head(df,10)
+```
+
+Quick summary for the whole dataset
+
+```{r}
+summary(df)
+```
+
+```{r}
+str(df)
+```
+
+-   Identify the **target variable (Churn)**.
+
+```{r}
+table(df$Churn)
+```
+
+-   Handle missing values.
+
+```{r}
+colSums(is.na(df))
+```
+
+We have 11 missing values in the column TotalCharges
+
+```{r}
+df$TotalCharges = as.numeric(df$TotalCharges)
+df = na.omit(df)
+```
+
+```{r}
+colSums(is.na(df))
+```
+
+-   Encode categorical variables (e.g., gender, contract type).
+
+    Before we start encoding categorical variables, we must look at the dataset and see what can we fix first
+
+    Convert SeniorCitizen (0/1 → Yes/No)
+
+```{r}
+df$SeniorCitizen = ifelse(df$SeniorCitizen == 1, "Yes", "No")
+```
+
+```{r}
+catvar = c("gender", "SeniorCitizen", "Partner", "Dependents",
+              "PhoneService", "MultipleLines", "InternetService",
+              "OnlineSecurity", "OnlineBackup", "DeviceProtection",
+              "TechSupport", "StreamingTV", "StreamingMovies",
+              "Contract", "PaperlessBilling", "PaymentMethod", "Churn")
+
+df[catvar] = lapply(df[catvar], as.factor)
+```
+
+-   Normalize or standardize numerical variables.
+
+```{r}
+numvar = c("tenure", "MonthlyCharges", "TotalCharges")
+
+df[numvar] = scale(df[numvar])
+
+```
+
+```{r}
+head(df)
+```
+
+Numerical variables are standardized using scaling so that they have mean 0 and standard deviation 1, improving model performance.
+
+------------------------------------------------------------------------
+
+## **b. Exploratory Data Analysis (5 points)**
+
+-   Create at least **2 visualizations**, such as:
+
+    -   Churn distribution
+
+    ```{r}
+    ggplot(df, aes (x = Churn)) +
+      geom_bar(fill = "steelblue") +
+      labs(title = "Churn Distribution",
+      x = "Churn",
+      y = "Count")
+    ```
+
+    -   Monthly charges vs churn
+
+```{r}
+ggplot(df, aes(x = Churn, y = MonthlyCharges, fill = Churn)) +
+  geom_boxplot() +
+  labs(title = "Monthly Charges vs Churn", 
+       x = "Churn", 
+       y = "Monthly Charges")
+```
+
+This boxplot compares monthly charges across churn groups to see if higher costs are linked to churn.
+
+-   Identify:
+
+    -   Class imbalance (if any)
+
+    -   At least 2 variables that may influence churn
+
+Some notable findings
+
+1.  Class Imbalance
+
+-   There is class imbalance, as non-churn customers are typically more frequent than churn customers.
+
+2.  Variables Influencing Churn
+
+-   MonthlyCharges: Customers with higher charges tend to churn more.
+
+-   Contract: Customers with shorter contracts (e.g., month-to-month) are more likely to churn.
+
+------------------------------------------------------------------------
+
+## **c. Neural Network Model Construction (8 points)**
+
+-   Build a **one-hidden-layer neural network** with:
+
+    -   Input layer (features)
+
+    ```{r}
+    # Convert target to numeric (0/1)
+    df$Churn <- ifelse(df$Churn == "Yes", 1, 0)
+
+    # Split features and target
+    x <- model.matrix(Churn ~ . -1, data = df)
+    y <- df$Churn
+
+    # Define model
+    model <- keras_model_sequential() %>%
+      layer_dense(units = 16, activation = "relu", input_shape = ncol(x)) %>%
+      layer_dense(units = 1, activation = "sigmoid")
+
+    # Compile model
+    model %>% compile(
+      loss = "binary_crossentropy",
+      optimizer = "adam",
+      metrics = c("accuracy")
+    )
+
+    model
+    ```
+
+-   Specify:
+
+    -   Number of neurons in hidden layer
+
+        **16 neurons**
+
+        **Explanation:** A moderate number of neurons is chosen to capture patterns without overfitting.
+
+    -   Activation functions used
+
+        **Hidden layer:** ReLU
+
+        **Output layer:** Sigmoid
+
+        **Explanation:** ReLU introduces non-linearity, while Sigmoid outputs probabilities between 0 and 1.
+
+    -   Loss function (e.g., binary cross-entropy)
+
+        **Binary Cross-Entropy**
+
+        **Explanation:** This loss function is appropriate for binary classification problems like churn prediction.
+
+------------------------------------------------------------------------
+
+## **d. Model Training (5 points)**
+
+-   Split the data into **training (80%) and testing (20%)**.
+
+```{r}
+set.seed(123)
+
+train_index <- sample(1:nrow(x), 0.8 * nrow(x))
+
+x_train <- x[train_index, ]
+x_test  <- x[-train_index, ]
+
+y_train <- y[train_index]
+y_test  <- y[-train_index]
+```
+
+-   Train the model using:
+
+    -   At least **10 epochs**
+
+    -   Optimizer such as **Stochastic Gradient Descent (SGD) or Adam**
+
+```{r}
+history <- model %>% fit(
+  x_train, y_train,
+  epochs = 10,
+  batch_size = 32,
+  validation_split = 0.2
+)
+```
+
+-   Report:
+
+    -   Training loss
+
+    -   Accuracy
+
+```{r}
+history$metrics$loss
+history$metrics$accuracy
+```
+
+![](images/clipboard-3808837442.png)
+
+-   **Training Loss:** 0.001166934
+
+-   **Accuracy:** 1.0000 (100%)
+
+**Explanation:** The training loss decreased significantly across epochs, indicating improved model learning, while the accuracy reached 100%, showing the model perfectly classified the training data.
+
+------------------------------------------------------------------------
+
+## **e. Model Evaluation (4 points)**
+
+-   Present:
+
+    -   Accuracy score
+
+    ```{r}
+    pred_prob <- model %>% predict(x_test)
+    pred_class <- ifelse(pred_prob > 0.5, 1, 0)
+
+    accuracy <- mean(pred_class == y_test)
+    accuracy
+    ```
+
+    -   Confusion matrix
+
+    ```{r}
+    table(Predicted = pred_class, Actual = y_test)
+    ```
+
+-   Interpret the results in **2–3 sentences** (e.g., model strengths/weaknesses).
+
+The model achieved 100% accuracy; however, the confusion matrix shows that it only predicted the non-churn class. This suggests the model failed to identify churn cases, likely due to class imbalance. Therefore, despite high accuracy, the model is not reliable for detecting actual churn customers.
+
+------------------------------------------------------------------------
+
+## **f. Model Improvement / Tuning (3 points)**
+
+-   Modify at least one parameter:
+
+    -   Number of hidden neurons
+
+    -   Learning rate
+
+    -   Number of epochs
+
+```{r}
+history_tuned <- model %>% fit(
+  x_train, y_train,
+  epochs = 20,   # increased from 10 → 20
+  batch_size = 32,
+  validation_split = 0.2
+)
+```
+
+```{r}
+pred_prob_tuned <- model %>% predict(x_test)
+pred_class_tuned <- ifelse(pred_prob_tuned > 0.5, 1, 0)
+
+accuracy_tuned <- mean(pred_class_tuned == y_test)
+accuracy_tuned
+```
+
+-   Compare performance before and after tuning
+
+Increasing the number of epochs did not change the model’s accuracy, which remained at 100%. This suggests that the model was already overfitting and predicting only the majority class. Therefore, tuning the number of epochs alone did not improve the model’s ability to detect churn.
+
+Further improvements such as handling class imbalance or adjusting model architecture are recommended for better performance.
